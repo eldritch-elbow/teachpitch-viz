@@ -1,7 +1,7 @@
 var geojson;
 var info = L.control();
 
-var count_threshold = 30;
+var count_threshold = 25;
 
 function getColor(d, max_linear_val) {
 	inc = max_linear_val / 6
