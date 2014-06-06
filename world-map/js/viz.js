@@ -62,7 +62,7 @@ info.update = function(feature) {
 		(feature ? 
 			'<b>' + feature.properties.name + '</b>'+			
 			'<br/>' + 
-			(countData[feature.id] || 0) + '00 teachers'
+			(countData[feature.id] || 0) + ' teachers'
 		: 'Hover over a region');
 };
 
