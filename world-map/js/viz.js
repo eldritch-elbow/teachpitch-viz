@@ -1,7 +1,83 @@
-var geojson;
-var info = L.control();
+/* Define a few key variables */
+var geojson = null;
 
-var count_threshold = 25;
+var needs = {}
+var countData = {}
+var count_threshold = 5;
+
+var info = L.control();
+var filter_panel = L.control({position: 'bottomleft'});
+
+
+/* DATA: Define active learning needs (from first country) */
+
+console.log(Object.keys(needs_by_country[0]));
+$.each( Object.keys(needs_by_country[0]), function( index, value ) {
+  needs[value] = false;
+});
+
+/* UI: Create learning needs filter buttons */
+$.each(Object.keys(needs), function( index, value ) {
+	if (value != "Country") {
+  		$('#needs_filter').append('<input type="checkbox" id="'+value+'" name="need" >'+value+'<br>');
+  	}
+});
+
+$('#needs_filter').append('<button id="clear" type="button">Clear</button><br>');
+$('#needs_filter').append('<button id="all" type="button">Select All</button><br>');
+
+
+/* DATA: Calculate learning need counts */
+
+function calc_counts() {  
+
+	$.each(needs_by_country, function(country_idx, country) {
+		running_total = 0;		
+		$.each(country, function( key, value ) {
+			if ( (key != "Country") && (needs[key] == true) ) {
+				running_total += value
+			}
+		});
+
+		countData[country['Country']] = running_total
+	});
+	
+	console.log(countData)
+}
+
+/* Add handlers for filter clicks */
+$( "input" ).click(function() {
+	console.log( $( this ).is(':checked') );
+	console.log( $( this ).attr('id') );
+	needs[$( this ).attr('id')] = $( this ).is(':checked');
+
+	refresh();
+});
+
+
+function set_all_inputs(status) {
+
+	$("input").prop("checked", status);
+
+	$.each(needs, function( key, val ) {
+		needs[key] = status;
+	});
+
+	refresh();
+
+}
+
+$( "#all" ).click(function() {
+	set_all_inputs(true)
+
+});
+
+$( "#clear" ).click(function() {
+	set_all_inputs(false)
+});
+
+
+/* Define feature styling and highlight behaviour */
 
 function getColor(d, max_linear_val) {
 	inc = max_linear_val / 6
@@ -49,16 +125,28 @@ function onEachFeature(feature, layer) {
 		click: zoomToFeature
 	});
 }
+
+
+
+/* Create the map */
+
+var map = L.map('map').setView([37.8, 0], 2);
+
+L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+	attribution: 'Map data &copy; ' + '<a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ',
+}).addTo(map);
+
+
 info.onAdd = function(map) {
 	this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
 	this.update();
 	return this._div;
 };
-// method that we will use to update the control based on feature properties passed
+
 info.update = function(feature) {
 
 	this._div.innerHTML = 
-		'<h4>Teachers By Country</h4>' + 
+		'<h4>Teacher Needs (by country)</h4>' + 
 		(feature ? 
 			'<b>' + feature.properties.name + '</b>'+			
 			'<br/>' + 
@@ -66,36 +154,12 @@ info.update = function(feature) {
 		: 'Hover over a region');
 };
 
-
-
-
-var map = L.map('map').setView([37.8, 0], 2);
-L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-	attribution: 'Map data &copy; ' + '<a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' + '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ',
-}).addTo(map);
-
-var geojson = null;
-function refreshGeojson() {
-
-if (geojson) {
-		map.removeLayer(geojson);
-	}
-
-	geojson = L.geoJson(regionData, {
-		style: style,
-		onEachFeature: onEachFeature
-	}).addTo(map);
-
-}
-
-refreshGeojson();
-
-
-
 info.addTo(map);
 
 
-var filter_panel = L.control({position: 'bottomleft'});
+
+
+/* Create filter panel */
 
 filter_panel.onAdd = function (map) {
     this._div = L.DomUtil.create('div', 'control filter'); 
@@ -114,50 +178,84 @@ filter_panel.update = function (props) {
 
 filter_panel.addTo(map);
 
+
+/* Create threshold slider */
+function create_slider() {
+
 	threshold_slider = $("#threshold_slider");
 	threshold_display = $("#threshold_display");
 
-max_count = 0;
+	max_count = 0;
+	$.each( countData , function( index, value ) {
+		max_count =Math.max(max_count, value)
+	});
 
-$.each( countData , function( index, value ) {
-	max_count =Math.max(max_count, value)
-});
+	threshold_slider.slider({
+	    range: false,
+	    min:   1,
+	    max:   max_count,
+	    value: count_threshold,
+	    step:  1,
+	    slide: slide_threshold
+	});
 
-	/* Create threshold slider, display initial value */
-    threshold_slider.slider({
-        range: false,
-        min:   1,
-        max:   max_count,
-        value: count_threshold,
-        step:  1,
-        slide: slide_threshold
-    });
+}
 
+function slide_threshold(event, ui) {
+	console.log(ui.value);
+
+	count_threshold = ui.value;
+	update_threshold_display()
+
+	refresh();
+}
 
 function update_threshold_display( ) {
 	threshold_display = $("#threshold_display");
 	threshold_display.text( 'Teacher count threshold: ' + count_threshold);
 }
 
-function slide_threshold(event, ui) {
-	console.log(ui.value);
 
-count_threshold = ui.value;
-	update_threshold_display()
 
-	refreshGeojson();
+/* Modify map scrolling behaviour to accommodate controls */ 
+$('.control').mouseenter(function() {
+  map.dragging.disable();
+  map.doubleClickZoom.disable();
+});
+
+$('.control').mouseleave(function() {
+  map.dragging.enable();
+  map.doubleClickZoom.enable();
+});
+
+
+
+function refresh() {
+
+	calc_counts()
+	create_slider();
+	update_threshold_display();
+
+	if (geojson) {
+		map.removeLayer(geojson);
+	}
+
+	geojson = L.geoJson(regionData, {
+		style: style,
+		onEachFeature: onEachFeature
+	})
+	.addTo(map);
 
 }
 
-update_threshold_display();
+refresh();
 
-	$('.control').mouseenter(function() {
-	  map.dragging.disable();
-	  map.doubleClickZoom.disable();
-	});
 
-	$('.control').mouseleave(function() {
-	  map.dragging.enable();
-	  map.doubleClickZoom.enable();
-	});
+/* Create key */
+
+
+
+
+
+
 

@@ -8,6 +8,7 @@
                         #map {
                             width: 1024px;
                             height: 650px;
+                            float: left;
                         }
                         .info {
                             padding: 6px 8px;
@@ -43,15 +44,19 @@
                         }
                         #threshold_control { padding-top: 10px; padding-bottom: 10px; width: 400px;}
 
+                        #needs_filter { float:right; }
+
         </style>
     </head>
     <body>
         <div id="map"></div>
+        <div id="needs_filter"></div>
         <script type="text/javascript" src="js/leaflet.js"></script>
         <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
         <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
         <script type="text/javascript" src="js/countries.js"></script>
         <script type="text/javascript" src="js/country_counts.js"></script>
+        <script type="text/javascript" src="js/needs.js"></script>
         <script type="text/javascript" src="js/viz.js"></script>
     </body>
 </html>
