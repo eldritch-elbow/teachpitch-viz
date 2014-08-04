@@ -2,7 +2,8 @@
 var geojson = null;
 
 var needs = {}
-var countData = {}
+var countTotals = {}
+var countDetails = {}
 var count_threshold = 5;
 
 var info = L.control();
@@ -16,72 +17,33 @@ $.each( Object.keys(needs_by_country[0]), function( index, value ) {
   needs[value] = false;
 });
 
-/* UI: Create learning needs filter buttons */
-$.each(Object.keys(needs_categories), function( index, value ) {
-	if (value != "Country") {
-  		$('#needs_filter').append('<input type="checkbox" id="'+value+'" name="need" >'+value+'<br>');
-  	}
-});
-
-$('#needs_filter').append('<button id="clear" type="button">Clear</button><br>');
-$('#needs_filter').append('<button id="all" type="button">Select All</button><br>');
-
 
 /* DATA: Calculate learning need counts */
 
 function calc_counts() {  
 
+	// Iterate through countries
 	$.each(needs_by_country, function(country_idx, country) {
+		country_key = country['Country'];
+
 		running_total = 0;		
+		detailed_count = {}
+
+		// Iterate through needs for the country
 		$.each(country, function( key, value ) {
 			if ( (key != "Country") && (needs[key] == true) ) {
+				detailed_count[key] = value
 				running_total += value
 			}
 		});
 
-		countData[country['Country']] = running_total
+		countTotals[country_key] = running_total
+		countDetails[country_key] = detailed_count;
 	});
 	
-	console.log(countData)
+	console.log(countTotals)
+	console.log(countDetails)
 }
-
-/* Add handlers for filter clicks */
-$( "input" ).click(function() {
-	checked = $( this ).is(':checked');
-	category = $( this ).attr('id');
-
-	console.log( checked );
-	console.log( category );
-	console.log( needs_categories[category] )	
-
-	$.each( needs_categories[category], function( key, value ) {
-		needs[ value ] = checked;
-	});
-
-	refresh();
-});
-
-
-function set_all_inputs(status) {
-
-	$("input").prop("checked", status);
-
-	$.each(needs, function( key, val ) {
-		needs[key] = status;
-	});
-
-	refresh();
-
-}
-
-$( "#all" ).click(function() {
-	set_all_inputs(true)
-
-});
-
-$( "#clear" ).click(function() {
-	set_all_inputs(false)
-});
 
 
 /* Define feature styling and highlight behaviour */
@@ -93,7 +55,7 @@ function getColor(d, max_linear_val) {
 
 function style(feature) {
 	return {
-		fillColor: getColor(countData[feature.id], count_threshold),
+		fillColor: getColor(countTotals[feature.id], count_threshold),
 		weight: 2,
 		opacity: 1,
 		color: 'white',
@@ -152,14 +114,28 @@ info.onAdd = function(map) {
 
 info.update = function(feature) {
 
+	total = 0
+	needs_html = "";
+
+	if (feature) {
+
+		if (countDetails[feature.id]) {
+			needs_html = '<br/><br/>';
+			$.each(countDetails[feature.id], function( key, value ) {
+				if (value > 0) {
+					needs_html += key + " : " + value + "<br>";
+				}
+			});
+		}
+
+		total = countTotals[feature.id] || 0;
+	}
+
 	this._div.innerHTML = 
-		'<h4>Teacher Needs (by country)</h4>' + 
+		'<h4>Teacher Needs</h4>' + 
 		(feature ? 
-			'<b>' + feature.properties.name + '</b>'+			
-			'<br/>' + 
-			(countData[feature.id] || 0) + ' teachers'
-
-
+			'<b>'   + feature.properties.name + '</b> - ' + total + ' total' +			
+			needs_html
 		: 'Hover over a region');
 };
 
@@ -179,6 +155,8 @@ filter_panel.onAdd = function (map) {
 
 filter_panel.update = function (props) {
     this._div.innerHTML = 
+		'<div id="needs_filter">'+
+		'</div>'+
 		'<div id="threshold_control">'+
 	        '<div id="threshold_display"></div><br>'+
 	        '<div id="threshold_slider"></div>'+
@@ -188,6 +166,57 @@ filter_panel.update = function (props) {
 filter_panel.addTo(map);
 
 
+/* UI: Create learning needs filter buttons */
+$.each(Object.keys(needs_categories), function( index, value ) {
+	if (value != "Country") {
+  		$('#needs_filter').append('<input type="checkbox" id="'+value+'" name="need" >'+value+'<br>');
+  	}
+});
+
+$('#needs_filter').append('<button id="clear" type="button">Clear</button>');
+$('#needs_filter').append('<button id="all" type="button">Select All</button><br>');
+
+/* Add handlers for filter clicks */
+$( "input" ).click(function() {
+	checked = $( this ).is(':checked');
+	category = $( this ).attr('id');
+
+	console.log( checked );
+	console.log( category );
+	console.log( needs_categories[category] )	
+
+	$.each( needs_categories[category], function( key, value ) {
+		needs[ value ] = checked;
+	});
+
+	refresh();
+});
+
+
+function set_all_inputs(status) {
+
+	$("input").prop("checked", status);
+
+	$.each(needs, function( key, val ) {
+		needs[key] = status;
+	});
+
+	refresh();
+
+}
+
+$( "#all" ).click(function() {
+	set_all_inputs(true)
+
+});
+
+$( "#clear" ).click(function() {
+	set_all_inputs(false)
+});
+
+
+
+
 /* Create threshold slider */
 function create_slider() {
 
@@ -195,7 +224,7 @@ function create_slider() {
 	threshold_display = $("#threshold_display");
 
 	max_count = 0;
-	$.each( countData , function( index, value ) {
+	$.each( countTotals , function( index, value ) {
 		max_count =Math.max(max_count, value)
 	});
 
@@ -242,8 +271,8 @@ $('.control').mouseleave(function() {
 function refresh() {
 
 	calc_counts()
-	create_slider();
-	update_threshold_display();
+	//create_slider();
+	//update_threshold_display();
 
 	if (geojson) {
 		map.removeLayer(geojson);
