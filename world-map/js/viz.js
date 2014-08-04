@@ -17,7 +17,7 @@ $.each( Object.keys(needs_by_country[0]), function( index, value ) {
 });
 
 /* UI: Create learning needs filter buttons */
-$.each(Object.keys(needs), function( index, value ) {
+$.each(Object.keys(needs_categories), function( index, value ) {
 	if (value != "Country") {
   		$('#needs_filter').append('<input type="checkbox" id="'+value+'" name="need" >'+value+'<br>');
   	}
@@ -47,9 +47,16 @@ function calc_counts() {
 
 /* Add handlers for filter clicks */
 $( "input" ).click(function() {
-	console.log( $( this ).is(':checked') );
-	console.log( $( this ).attr('id') );
-	needs[$( this ).attr('id')] = $( this ).is(':checked');
+	checked = $( this ).is(':checked');
+	category = $( this ).attr('id');
+
+	console.log( checked );
+	console.log( category );
+	console.log( needs_categories[category] )	
+
+	$.each( needs_categories[category], function( key, value ) {
+		needs[ value ] = checked;
+	});
 
 	refresh();
 });
@@ -253,7 +260,6 @@ function refresh() {
 refresh();
 
 
-/* Create key */
 
 
 
